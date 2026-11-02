@@ -132,7 +132,7 @@ unsigned char __fastcall__ run_buttons(unsigned char extra_keys)
 
 static unsigned char __fastcall__ text_lines(const char *msg, unsigned char y)
 {
-    static char line[64];
+    char *line = (char *)0x1D00;    /* line buffer rows past the 11 a dialog line uses */
     unsigned char n;
     while (*msg) {
         n = 0;
@@ -433,7 +433,8 @@ static void __fastcall__ command(unsigned char c)
         else if (c < CM_EDIT_FIRST) { if (load_ovl(OV_MENU)) menu_command(c); }
         else if (c < CM_PRINT_FIRST) { if (load_ovl(OV_EDIT)) edit_command(c); }
         else if (c < CM_ACC_FIRST) { if (load_ovl(OV_PRINT)) print_command(c); }
-        else if (load_ovl(OV_ACC)) acc_command(c);
+        else if (c < CM_NET) { if (load_ovl(OV_ACC)) acc_command(c); }
+        else if (load_ovl(OV_NET) && net_command(c)) fop(FO_LOAD);
         goto done;
     }
     switch (c) {

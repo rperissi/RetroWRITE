@@ -57,6 +57,7 @@ static const struct mitem m_apple[] = {
     { 0, CM_SEP, 0 },
     { "Load DOS 3.3 File...", CM_DOSLOAD, 0 },
     { "Communications...", CM_COMM, 0 },
+    { "CoGS Share...", CM_NET, 0 },
     { "BASIC.SYSTEM", CM_BASIC, 0 },
     { 0, 0, 0 }
 };

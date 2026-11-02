@@ -59,7 +59,7 @@ folder (for example `/HD/RETROWRITE`) on your ProDOS disk with these types:
 | RW2.SYSTEM | SYS ($FF) | $2000 |
 | RW2.MAIN | BIN ($06) | $4000 |
 | RW2.LC | BIN | $D400 |
-| RW2.FONTS, RW2.OVL1 – RW2.OVL9, RW2.OVLA, RW2.OVLB, RW2.SPLASH, SPELL.DICT | BIN | $0000 |
+| RW2.FONTS, RW2.OVL1 – RW2.OVL9, RW2.OVLA – RW2.OVLC, RW2.SPLASH, SPELL.DICT | BIN | $0000 |
 | TUTORIAL, LETTER | $50 (GWP) | $5257 |
 | GLOSSARY | TXT ($04) | $0000 |
 
@@ -102,6 +102,35 @@ To rebuild the manual: `python3 man/build.py "docs/RetroWrite II Owner's Manual.
 - **Saving:** Save As adds `.ODT` to a name without a period; a name with another ending (such as `LETTER.RW`) saves RetroWrite II's own format. The ODT is a ZIP with its parts stored (no compression), written with CRC-32 by 6502 code. Fonts become Liberation Sans/Serif/Mono and the 9/18/27 point sizes become 12/24/36 point, which keeps lines about as long as RetroWrite II prints them.
 - **Opening:** the Open dialog lists names ending in `.ODT` whatever their ProDOS type. A 6502 DEFLATE decoder unpacks `styles.xml` and `content.xml` into work files, using aux memory $4000-$BFFF as its 32K window, then a streaming XML reader builds the document. Text beyond ASCII is mapped to the nearest plain letters; pictures, footnotes and comments are left out.
 - **Speed:** about half a minute for a short letter saved by LibreOffice on a 1 MHz IIe; files RetroWrite II saved itself open faster.
+
+## CoGS Share (this fork)
+
+With a [CoGS](https://a2cogs.com) card in the IIe or IIgs, the Apple menu has
+a **CoGS Share...** item. It moves `.ODT` documents between the ProDOS disk
+and the `files` folder of a CoGS share on your LAN (CoGS Image Manager on a
+Mac, or `cogs_share.py --writable`), so a document written here shows up as
+an ordinary file a modern computer opens straight away, and one saved by
+LibreOffice can be opened here without copying it onto a disk image.
+
+![CoGS Share: Send, Open, Address](screenshots/cogs_share.png)
+
+- **Send** uploads the document as last saved (Save or Save As first). The
+  file keeps its ProDOS name, `LETTER.ODT`.
+- **Open** lists the `.ODT` files in the share's `files` folder (long names
+  get a ProDOS alias, `From The Mac.odt` is `FROMTHEMAC.ODT`), downloads
+  the one you pick into your documents folder and opens it.
+- **Address** sets the share's URL, `http://host:port/`, as Image Manager or
+  `cogs_share.py` prints it. It is kept in `RW2.COGS` next to the program;
+  the first time, the card's Image Source is offered as the default when it
+  is a LAN share.
+
+![Opening a document from the share](screenshots/cogs_share_open.png)
+
+The card does the networking. The overlay (`src/ovl_net.c`, `src/net.s`,
+`RW2.OVLC`) talks to the card through its slot registers, one HTTP command
+frame per request; a document goes up in 1 KB pieces with a `Content-Range`
+header the share joins. Firmware 1.39 or later on the card. The `files`
+endpoint is in `cogs_share.py` now and is coming to Image Manager.
 
 ## Document format
 

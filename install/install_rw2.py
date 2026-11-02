@@ -4,7 +4,7 @@ Install RetroWrite II onto a ProDOS disk image that has Apple II DeskTop.
 
   python3 install_rw2.py IMAGE.po [--ac ac.jar] [--files DIR] [--slot N]
 
-- Copies RW2.SYSTEM (loader), RW2.MAIN, RW2.LC, RW2.FONTS, RW2.OVL1-9, RW2.OVLA-B, RW2.SPLASH
+- Copies RW2.SYSTEM (loader), RW2.MAIN, RW2.LC, RW2.FONTS, RW2.OVL1-9, RW2.OVLA-C, RW2.SPLASH
   and SPELL.DICT into /<VOL>/RETROWRITE, with the TUTORIAL document and a
   starter GLOSSARY.
 - If the disk has no BASIC.SYSTEM at its top level, copies the first one found
@@ -83,7 +83,7 @@ def main():
                               ("RW2.OVL5", "BIN", "0x0000"), ("RW2.OVL6", "BIN", "0x0000"),
                               ("RW2.OVL7", "BIN", "0x0000"), ("RW2.OVL8", "BIN", "0x0000"),
                               ("RW2.OVL9", "BIN", "0x0000"), ("RW2.OVLA", "BIN", "0x0000"),
-                              ("RW2.OVLB", "BIN", "0x0000"),
+                              ("RW2.OVLB", "BIN", "0x0000"), ("RW2.OVLC", "BIN", "0x0000"),
                               ("RW2.SPLASH", "BIN", "0x0000"), ("SPELL.DICT", "BIN", "0x0000"),
                               ("TUTORIAL", "GWP", "0x5257"), ("GLOSSARY", "TXT", "0x0000")):
         src = os.path.join(a.files, fname)

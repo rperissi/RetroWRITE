@@ -73,6 +73,7 @@
 #define OV_ODTIN  9
 #define OV_ODTRD  10
 #define OV_ODTZIP 11
+#define OV_NET    12          /* CoGS Share: send / open over the card */
 #define FT_ODT   0xD0           /* pseudo file type: a name ending in .ODT */
 unsigned char odt_content(void); /* overlay 8: the text -> RW2.XML2 */
 unsigned char odt_save(void);   /* overlay 11: RW2.XML2 + styles -> pathbuf as ODT */
@@ -90,6 +91,7 @@ extern char doc_head[40], doc_foot[40];
 extern unsigned char def_fmt;
 void basic_launch(void);
 unsigned char __fastcall__ acc_command(unsigned char c);
+unsigned char __fastcall__ net_command(unsigned char c);   /* overlay 12; 1 = pathbuf/ftype hold a file to load */
 unsigned char __fastcall__ file_op(unsigned char op);
 unsigned char __fastcall__ file_dialog(unsigned char mode);
 extern unsigned char ftype;
@@ -215,6 +217,8 @@ enum {
     CM_PSETUP, CM_PRINT, CM_PRINTMANY, CM_PRINTNOW,
     /* accessories overlay */
     CM_PREFS, CM_DOSLOAD, CM_COMM, CM_BASIC,
+    /* CoGS Share overlay */
+    CM_NET,
     /* resident */
     CM_SELALL, CM_PGUP, CM_PGDN,
     CM_SEP = 0xFE, CM_TITLE = 0xFD
