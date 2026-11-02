@@ -129,8 +129,12 @@ LibreOffice can be opened here without copying it onto a disk image.
 The card does the networking. The overlay (`src/ovl_net.c`, `src/net.s`,
 `RW2.OVLC`) talks to the card through its slot registers, one HTTP command
 frame per request; a document goes up in 1 KB pieces with a `Content-Range`
-header the share joins. Firmware 1.39 or later on the card, and an Image
-Manager with the `files` folder. The disk is in the card's catalog under
+header the share joins; it comes down through the card's retained-document
+stream in pieces, so the disk driver and the network never share the card's
+FIFO at the same moment (the program may be running from a volume the card
+serves). Firmware 1.39 or later on the card, and an Image Manager with the
+`files` folder. Tested in MAME on a //e and on a ROM 01 IIgs booted from the
+card. The disk is in the card's catalog under
 Work & utilities, so a card owner can boot it without copying anything.
 
 ## Document format

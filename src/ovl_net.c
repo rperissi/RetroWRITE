@@ -11,7 +11,11 @@
 **   to the card (method, URL, headers, body) answered by DATA events and
 **   an HTTP_DONE event; a document goes up in 1 KB pieces with a
 **   Content-Range header the share joins back together, because one
-**   frame carries under 2 KB. See the CoGS Technical Reference, ch. 9.
+**   frame carries under 2 KB, and comes down through the card's retained
+**   document (stream handle 2) a piece at a time. The card's own disk
+**   driver shares the FIFO when the program runs from a card volume, so
+**   every frame is read whole and no disk I/O happens mid-frame.
+**   See the CoGS Technical Reference, ch. 9.
 */
 #pragma code-name (push, "OVLC")
 #pragma rodata-name (push, "OVLC")
@@ -44,10 +48,14 @@ extern unsigned char cg_err, cg_tmo;
 
 #define OP_HTTP     0x20
 #define OP_CATURL   0x5A
+#define OP_SREAD    0x71
+#define OP_SCLOSE   0x72
 #define EV_DATA     0x91
 #define EV_ERROR    0x93
 #define EV_DONE     0x95
+#define HF_RETAIN   0x04
 #define HF_KEEP     0x08
+#define E_OVERRUN   9
 
 static char server[SRVMAX + 4];         /* "http://host:port/" (RW2.COGS) */
 static char names[NMAX][16];            /* .ODT files on the share */
@@ -56,7 +64,7 @@ static unsigned char http_err;          /* card error code from an ERROR event *
 static unsigned http_status;
 static int fd;
 static unsigned got;                    /* bytes received into fd */
-static unsigned char sink;              /* DATA goes: 0 nowhere, 1 fd, 2 names */
+static unsigned char sink;              /* DATA goes: 0 nowhere, 2 names */
 static unsigned char lpos, lskip;       /* listing parse state */
 static char msg[128];
 
@@ -147,6 +155,7 @@ static void net_fail(void)
     if (cg_err == 2) { show_msg("Cancelled."); return; }
     if (cg_err) { show_msg("The CoGS card did not answer.\nIs it joined to Wi-Fi?"); return; }
     if (http_err) {
+        if (http_err == E_OVERRUN) { show_msg("That document is over 32K;\ntoo big to open from the share."); return; }
         strcpy(msg, "The card could not reach the share\n(network error ");
         utoa(http_err, msg + strlen(msg), 10);
         strcat(msg, "). Check the address.");
@@ -165,11 +174,6 @@ static void net_fail(void)
 static void __fastcall__ deliver(unsigned n)
 {
     unsigned char *p = NETBUF, c;
-    if (sink == 1) {
-        if (write(fd, NETBUF, n) != (int)n) cg_err = 1;
-        got += n;
-        return;
-    }
     if (sink != 2) return;
     /* listing: "ALIAS<tab>name<tab>bytes\n" per file; keep the .ODT aliases.
        lskip: 0 in the alias, 1 past it, 2 line rejected */
@@ -245,6 +249,47 @@ static unsigned char __fastcall__ http(const char *method, const char *path, con
     }
 }
 
+/* A GET made with HF_RETAIN leaves its body on the card (32K at most) and
+   stream handle 2 hands it out in pieces. Each read is one request and one
+   reply, so the FIFO is idle while the piece goes to disk: when the program
+   runs from a volume the card itself serves, the disk driver uses the same
+   FIFO, and writing during a pushed DATA stream would collide with it. */
+static unsigned char pull_retained(void)
+{
+    unsigned len, n;
+    unsigned char op, fl;
+    for (;;) {
+        cg_wr(OP_SREAD); cg_wr(3); cg_wr(0);
+        cg_wr(2); cg_wr(PIECE & 0xFF); cg_wr(PIECE >> 8);
+        op = cg_rd();
+        len = cg_rd();
+        len |= cg_rd() << 8;
+        if (cg_err) return 0;
+        if (op != (OP_SREAD | 0x80)) {      /* a queued event */
+            cg_skip(len);
+            if (op == EV_ERROR || cg_err) return 0;
+            continue;
+        }
+        /* handle, result, flags, level, len(u16), data */
+        cg_rd(); op = cg_rd(); fl = cg_rd(); cg_rd();
+        n = cg_rd();
+        n |= cg_rd() << 8;
+        if (op || n > PIECE) { cg_skip(n); return 0; }
+        cg_rdn(NETBUF, n);
+        if (cg_err) return 0;
+        if (n && write(fd, NETBUF, n) != (int)n) return 0;
+        got += n;
+        if (fl & 2) break;                  /* END */
+        if (!n) return 0;
+    }
+    cg_wr(OP_SCLOSE); cg_wr(1); cg_wr(0); cg_wr(2);
+    op = cg_rd();
+    len = cg_rd();
+    len |= cg_rd() << 8;
+    if (!cg_err) cg_skip(len);
+    return !cg_err;
+}
+
 /* ---------------------------------------------------------------------- */
 /* The share's address: RW2.COGS next to the program, else the card's      */
 /* Image Source (a LAN share's base URL), else typed in                    */
@@ -293,20 +338,31 @@ static unsigned char __fastcall__ has(const char *s, const char *t)
 static void srv_default(void)
 {
     unsigned len;
-    unsigned char op, r;
+    unsigned char op, ul;
     char *p;
     strcpy(server, "http://");
     cg_err = 0;
     cg_wr(OP_CATURL); cg_wr(0); cg_wr(0);
-    op = cg_rd();
-    len = cg_rd();
-    len |= cg_rd() << 8;
-    if (cg_err || op != (OP_CATURL | 0x80) || len < 2) return;
-    r = cg_rd(); --len;
-    if (len > SRVMAX) { cg_rdn(msg, SRVMAX); cg_skip(len - SRVMAX); len = SRVMAX; }
-    else cg_rdn(msg, len);
-    msg[len] = 0;
-    if (cg_err || r || has(msg, "a2cogs.com")) return;
+    /* Reply $DA: url_len(1), url[]. Anything else (an ERROR when the card
+       has no catalog URL, a queued event) is drained whole: a byte left in
+       the FIFO desyncs the card's own disk driver when the program runs
+       from a volume the card serves. */
+    for (;;) {
+        op = cg_rd();
+        len = cg_rd();
+        len |= cg_rd() << 8;
+        if (cg_err) return;
+        if (op == (OP_CATURL | 0x80)) break;
+        cg_skip(len);
+        if (op == EV_ERROR || cg_err) return;
+    }
+    if (len < 1) return;
+    ul = cg_rd(); --len;
+    if (ul > len) ul = len;
+    cg_rdn(msg, ul > SRVMAX ? SRVMAX : ul);
+    cg_skip(len - (ul > SRVMAX ? SRVMAX : ul));
+    msg[ul > SRVMAX ? SRVMAX : ul] = 0;
+    if (cg_err || !ul || has(msg, "a2cogs.com")) return;
     for (p = msg; *p && *p != ':'; ++p) ;         /* scheme:// */
     if (p[0] != ':' || p[1] != '/' || p[2] != '/') return;
     for (p += 3; *p && *p != '/'; ++p) ;          /* host:port */
@@ -458,8 +514,8 @@ static unsigned char do_open(void)
     _auxtype = 0;
     fd = open(pathbuf, O_WRONLY | O_CREAT | O_TRUNC);
     if (fd < 0) { show_msg("Can't create the file here.\nSet a documents folder in Startup Preferences."); return 0; }
-    sink = 1; got = 0;
-    ok = http("GET", tmppath, "", 0, 0) && http_status == 200;
+    sink = 0; got = 0;
+    ok = http("GET", tmppath, "", HF_RETAIN, 0) && http_status == 200 && pull_retained();
     close(fd);
     if (!ok) { remove(pathbuf); net_fail(); return 0; }
     ftype = FT_ODT;
