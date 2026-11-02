@@ -155,7 +155,7 @@ static void net_fail(void)
     }
     strcpy(msg, "The share answered HTTP ");
     utoa(http_status, msg + strlen(msg), 10);
-    if (http_status == 403) strcat(msg, ".\nIt is read-only: start it with --writable,\nor turn on Writeable in Image Manager.");
+    if (http_status == 403) strcat(msg, ".\nThe share is read-only. Turn on Writeable\nin Image Manager and try again.");
     else if (http_status == 404) strcat(msg, ".\nNo files folder there. Is the address right?");
     else strcat(msg, ".");
     show_msg(msg);
@@ -318,7 +318,7 @@ static unsigned char srv_ask(void)
 {
     unsigned char n;
     if (!server[0]) srv_default();
-    if (!ask_text("Address of the CoGS share, as Image Manager\nor cogs_share shows it (http://host:port/):", server, SRVMAX)) return 0;
+    if (!ask_text("Address of the CoGS share on your Mac,\nas Image Manager shows it (http://host:port/):", server, SRVMAX)) return 0;
     n = (unsigned char)strlen(server);
     if (n && server[n - 1] != '/') strcat(server, "/");
     srv_save();

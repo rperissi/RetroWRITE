@@ -108,7 +108,7 @@ To rebuild the manual: `python3 man/build.py "docs/RetroWrite II Owner's Manual.
 With a [CoGS](https://a2cogs.com) card in the IIe or IIgs, the Apple menu has
 a **CoGS Share...** item. It moves `.ODT` documents between the ProDOS disk
 and the `files` folder of a CoGS share on your LAN (CoGS Image Manager on a
-Mac, or `cogs_share.py --writable`), so a document written here shows up as
+Mac, with Writeable on), so a document written here shows up as
 an ordinary file a modern computer opens straight away, and one saved by
 LibreOffice can be opened here without copying it onto a disk image.
 
@@ -119,8 +119,8 @@ LibreOffice can be opened here without copying it onto a disk image.
 - **Open** lists the `.ODT` files in the share's `files` folder (long names
   get a ProDOS alias, `From The Mac.odt` is `FROMTHEMAC.ODT`), downloads
   the one you pick into your documents folder and opens it.
-- **Address** sets the share's URL, `http://host:port/`, as Image Manager or
-  `cogs_share.py` prints it. It is kept in `RW2.COGS` next to the program;
+- **Address** sets the share's URL, `http://host:port/`, as Image Manager
+  shows it. It is kept in `RW2.COGS` next to the program;
   the first time, the card's Image Source is offered as the default when it
   is a LAN share.
 
@@ -129,8 +129,9 @@ LibreOffice can be opened here without copying it onto a disk image.
 The card does the networking. The overlay (`src/ovl_net.c`, `src/net.s`,
 `RW2.OVLC`) talks to the card through its slot registers, one HTTP command
 frame per request; a document goes up in 1 KB pieces with a `Content-Range`
-header the share joins. Firmware 1.39 or later on the card. The `files`
-endpoint is in `cogs_share.py` now and is coming to Image Manager.
+header the share joins. Firmware 1.39 or later on the card, and an Image
+Manager with the `files` folder. The disk is in the card's catalog under
+Work & utilities, so a card owner can boot it without copying anything.
 
 ## Document format
 
